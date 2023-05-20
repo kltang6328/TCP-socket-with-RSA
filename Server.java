@@ -17,9 +17,8 @@ public class Server {
             // Print the message from client
             System.out.println("Message received: " + clientMessage);
 
-            // Close sockets
+            // Close socket
             connectionSocket.close();
-            welcome.close();
         }
     }
 }
