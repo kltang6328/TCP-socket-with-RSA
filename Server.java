@@ -6,6 +6,8 @@ public class Server {
         // Open socket on same port as client
         ServerSocket welcome = new ServerSocket(1337);
 
+        System.out.println("Server running...");
+
         while(true) {
             // Open connection socket on the server
             Socket connectionSocket = welcome.accept();
