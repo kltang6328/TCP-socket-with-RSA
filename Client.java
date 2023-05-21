@@ -4,40 +4,62 @@ import java.util.Scanner;
 
 public class Client {
     public static void main(String args[]) throws Exception {
-        // Prompt user to enter the file name that contains their message
+        // Initialize scanner
         Scanner keyboard = new Scanner(System.in);
-        System.out.print("Enter a file name: ");
-        String fileName = keyboard.nextLine();
 
-        // Initialize a string to hold message
-        String message = "";
+        // Initialize variable quit 
+        boolean quit = false;
 
-        // Read the file and print to message string
-        try {
-            File file = new File(fileName);
-            Scanner fileReader = new Scanner(file);
-            while (fileReader.hasNextLine()) {
-                message = fileReader.nextLine();
+        // Continue to run program until user chooses to quit 
+        while (!quit) {
+            // Prompt user to enter the file name that contains their message
+            System.out.print("Enter a file name: ");
+            String fileName = keyboard.nextLine();
+
+            // Check if user wants to quit
+            if(fileName.equalsIgnoreCase("quit")) {
+                quit = true;
+                break;
             }
-            fileReader.close();
 
-            // Open a new socket 
-            Socket clientSocket = new Socket("localhost", 1337);
-            DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
+            // Initialize a string to hold message
+            String message = "";
 
-            // Send message to server
-            outToServer.writeBytes(message + '\n');
+            try {
+                // Read the file 
+                File file = new File(fileName);
+                Scanner fileReader = new Scanner(file);
 
-            // Let client know the message was sent
-            System.out.println("Message sent!");
+                // Print to message string
+                while (fileReader.hasNextLine()) {
+                    message = fileReader.nextLine();
+                }
+                fileReader.close();
 
-            // Close socket
-            clientSocket.close();
-        } catch (FileNotFoundException e) { // If file could not be found, print error warning message
-            System.out.println("WARNING-- File '" + fileName + "' could not be found.");
+                // Open a new socket
+                Socket clientSocket = new Socket("localhost", 1337);
+                DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
+
+                // Send message to server
+                outToServer.writeBytes(message + '\n');
+
+                // Let client know the message was sent
+                System.out.println("Message sent!");
+
+                // Close socket
+                clientSocket.close();
+            } catch (FileNotFoundException e) { // If file could not be found, print error warning message
+                System.out.println("WARNING-- File '" + fileName + "' could not be found.");
+            }
+            // Check if user wants to quit
+            System.out.println("Type 'quit' to exit program or type anything else to continue with another file.");
+            String input = keyboard.nextLine();
+            if(input.equalsIgnoreCase("quit"))
+                quit = true;
         }
-
         // Close scanner
         keyboard.close();
+
+        System.out.println("Shutting down...");
     }
 }
