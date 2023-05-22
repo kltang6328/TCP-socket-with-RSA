@@ -1,65 +1,76 @@
 import java.io.*;
 import java.net.*;
-import java.util.Scanner;
+import java.security.*;
+
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Base64;
+import java.security.spec.X509EncodedKeySpec;
 
 public class Client {
-    public static void main(String args[]) throws Exception {
-        // Initialize scanner
-        Scanner keyboard = new Scanner(System.in);
+    public static void main(String[] args) {
+        // Initialize variables so its easier to change later if necessary
+        String host = "localhost";
+        int port = 12345;
 
-        // Initialize variable quit 
-        boolean quit = false;
+        // Open a new socket
+        try (Socket socket = new Socket(host, port)) {
+            // Generate RSA key pair for the client
+            KeyPair clientKeyPair = RSA.generateKeyPair();
+            PublicKey clientPublicKey = clientKeyPair.getPublic();
+            PrivateKey clientPrivateKey = clientKeyPair.getPrivate();
 
-        // Continue to run program until user chooses to quit 
-        while (!quit) {
-            // Prompt user to enter the file name that contains their message
-            System.out.print("Enter a file name: ");
-            String fileName = keyboard.nextLine();
+            // Send client's public key to the server
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            byte[] clientPublicKeyBytes = clientPublicKey.getEncoded();
+            String encodedClientPublicKey = Base64.getEncoder().encodeToString(clientPublicKeyBytes);
+            writer.write(encodedClientPublicKey);
+            writer.newLine();
+            writer.flush();
 
-            // Check if user wants to quit
-            if(fileName.equalsIgnoreCase("quit")) {
-                quit = true;
-                break;
+            // Receive server's public key
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            String encodedServerPublicKey = reader.readLine();
+            byte[] serverPublicKeyBytes = Base64.getDecoder().decode(encodedServerPublicKey);
+            PublicKey serverPublicKey = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(serverPublicKeyBytes));
+
+            // Prompt user to enter the file name that contains their message and check if the user wants to quit
+            BufferedReader userInputReader = new BufferedReader(new InputStreamReader(System.in));
+            System.out.print("Enter the file name or type 'Quit' to exit: ");
+            String userInput = userInputReader.readLine();
+
+            while (!userInput.equalsIgnoreCase("Quit")) {
+                // Read the file
+                String filePath = userInput;
+                byte[] fileData = Files.readAllBytes(Paths.get(filePath));
+
+                // Encrypt message with server's public key
+                byte[] encryptedFileData = RSA.encrypt(fileData, serverPublicKey);
+
+                // Send encrypted message to server
+                writer.write(Base64.getEncoder().encodeToString(encryptedFileData));
+                System.out.print("Encrypted message:" + Base64.getEncoder().encodeToString(encryptedFileData) + "\n");
+                writer.newLine();
+                writer.flush();
+
+                // Read encrypted server's response
+                String serverResponse = reader.readLine();
+                byte[] encryptedServerResponse = Base64.getDecoder().decode(serverResponse);
+
+                // Decrypt server's response with client's private key
+                byte[] decryptedServerResponse = RSA.decrypt(encryptedServerResponse, clientPrivateKey);
+                String decryptedMessage = new String(decryptedServerResponse);
+
+                // Print decrypted server's response
+                System.out.println("Decrypted server's response: " + decryptedMessage);
+
+                // Prompt user to enter another file name or quit
+                System.out.print("Enter the file name or type 'Quit' to exit: ");
+                userInput = userInputReader.readLine();
             }
-
-            // Initialize a string to hold message
-            String message = "";
-
-            try {
-                // Read the file 
-                File file = new File(fileName);
-                Scanner fileReader = new Scanner(file);
-
-                // Print to message string
-                while (fileReader.hasNextLine()) {
-                    message = fileReader.nextLine();
-                }
-                fileReader.close();
-
-                // Open a new socket
-                Socket clientSocket = new Socket("localhost", 1337);
-                DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
-
-                // Send message to server
-                outToServer.writeBytes(message + '\n');
-
-                // Let client know the message was sent
-                System.out.println("Message sent!");
-
-                // Close socket
-                clientSocket.close();
-            } catch (FileNotFoundException e) { // If file could not be found, print error warning message
-                System.out.println("WARNING-- File '" + fileName + "' could not be found.");
-            }
-            // Check if user wants to quit
-            System.out.println("Type 'quit' to exit program or type anything else to continue with another file.");
-            String input = keyboard.nextLine();
-            if(input.equalsIgnoreCase("quit"))
-                quit = true;
+        } catch (Exception e) { // Print error warning message
+            e.printStackTrace();
         }
-        // Close scanner
-        keyboard.close();
-
-        System.out.println("Shutting down...");
     }
 }
+
